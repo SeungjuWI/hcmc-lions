@@ -1,0 +1,10 @@
+{
+  "name": "hcmc-lions",
+  "version": "0.1.0",
+  "description": "HCMC Lions — 호치민 AI 창업 강의 랜딩 (순수 HTML/CSS/JS)",
+  "private": true,
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  }
+}
