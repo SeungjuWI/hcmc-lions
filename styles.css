@@ -83,8 +83,7 @@ h1.title {
 }
 
 /* ===== 00 인트로(우주) + 크림 ↔ 주황 교차 ===== */
-#s-intro { --bg-section:#0a0712; --fg:#ffffff; --fg-dim:rgba(255,255,255,.6); --accent:#ff7a3c; }
-#s-hook  { --bg-section:#fff6ee; --fg:#211609; --fg-dim:rgba(33,22,9,.6);  --accent:#ff7a3c; }
+#s-cosmos { --bg-section:#0a0712; --fg:#ffffff; --fg-dim:rgba(255,255,255,.62); --accent:#ff7a3c; }
 #s-shift { --bg-section:#ff7a3c; --fg:#2a1100; --fg-dim:rgba(42,17,0,.66); --accent:#ffffff; }
 #s-what  { --bg-section:#fff6ee; --fg:#211609; --fg-dim:rgba(33,22,9,.6);  --accent:#ff7a3c; }
 #s-who   { --bg-section:#ff7a3c; --fg:#2a1100; --fg-dim:rgba(42,17,0,.66); --accent:#ffffff; }
@@ -113,7 +112,7 @@ h1.title {
 
 /* ---------- 핀 스크럽 공통 ---------- */
 .pin-space { position: relative; }                      /* 스크롤 거리(=인터랙션 길이) */
-#s-hook  .pin-space { height: 210vh; }
+#s-cosmos .pin-space { height: 460vh; }
 #s-shift .pin-space { height: 230vh; }
 #s-what  .pin-space { height: 420vh; }
 .pin-sticky {
@@ -180,8 +179,16 @@ h1.title {
 }
 .cta:hover { transform: translateY(-2px); box-shadow: 0 18px 56px color-mix(in srgb, var(--fg) 45%, transparent); }
 
-/* ---------- 00 인트로: 우주 별-시계 ---------- */
+/* ---------- 00–01 COSMOS: 별-시계 → 사람-점 그리드 ---------- */
 .clock-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; display: block; }
+.cosmos-text { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.ct-layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  text-align: center; padding: clamp(92px,13vh,150px) 24px clamp(48px,9vh,90px); }
+.ct-intro { justify-content: flex-end; }
+.ct-hook { justify-content: space-between; opacity: 0; }
+.ct-intro #introTyped { font-size: clamp(20px,2.6vw,32px); font-weight: 700; color: var(--fg); }
+.ct-hook .title { font-size: clamp(26px,4.4vw,58px); font-weight: 800; letter-spacing: -.02em; color: var(--fg); max-width: 18ch; }
+.cosmos-foot { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .intro { justify-content: flex-end; align-items: center; text-align: center; padding-bottom: clamp(48px,11vh,96px); }
 .intro-inner { width: auto; max-width: none; }
 .intro-line { font-size: clamp(20px,2.6vw,32px); font-weight: 700; letter-spacing: -.01em; color: var(--fg); min-height: 1.3em; }
@@ -228,9 +235,10 @@ h1.title {
 
 /* ============ MOBILE (≤768px): 가로 핀 해제, 전부 세로 ============ */
 @media (max-width: 768px) {
-  #s-hook .pin-space, #s-shift .pin-space, #s-what .pin-space { height: auto; }
+  #s-shift .pin-space, #s-what .pin-space { height: auto; }
   .pin-sticky { position: static; height: auto; padding: clamp(96px,12vh,140px) 0 64px; }
   .pin-sticky.is-pad { padding: clamp(96px,12vh,140px) 24px 64px; }
+  .pin-sticky.cosmos { position: sticky; height: 100svh; padding: 0; }   /* 모바일에서도 모핑 유지 */
   .what-head { margin-bottom: 28px; }
   .h-track { flex-direction: column; transform: none !important; padding: 0 24px; }
   .h-card { flex-basis: auto; width: 100%; min-height: 0; }

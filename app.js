@@ -40,32 +40,22 @@
     "</header>" +
     '<div class="scroll-progress" id="scrollProgress"></div>' +
 
-    /* 00 INTRO — 우주 별-시계 (독립 첫 화면) */
-    '<section class="section intro" id="s-intro">' +
-      '<canvas class="clock-canvas" id="clockCanvas"></canvas>' +
-      '<div class="inner intro-inner">' +
-        '<div class="intro-line reveal">' + esc(t.intro_line) + "</div>" +
-        '<div class="scroll-cue"><i></i></div>' +
-      "</div>" +
-    "</section>" +
-
-    /* 01 HOOK — 핀 스크럽(카운터) */
-    '<section id="s-hook">' +
-      '<div class="pin-space" id="hookPin">' +
-        '<div class="pin-sticky is-pad">' + videoSlot() +
-          '<div class="inner">' +
-            '<div class="eyebrow reveal">' + esc(t.hook_eyebrow) + "</div>" +
-            '<h1 class="title reveal">' + esc(t.hook_title) + "</h1>" +
-            '<p class="sub reveal">' + esc(t.hook_sub) + "</p>" +
-            '<div class="counter reveal" id="counter">' +
-              '<div class="count-lead">' + esc(t.count_lead) + "</div>" +
-              '<div class="count-people" id="countPeople"></div>' +
-              '<div class="count-eq">' +
-                '<span class="ce-unit">₫10,000</span>' +
-                '<span class="ce-op">×</span>' +
-                '<span class="ce-people"><b id="cePeople">0</b>' + esc(t.people_suffix) + "</span>" +
-                '<span class="ce-op">=</span>' +
-                '<span class="ce-total" id="ceTotal">₫0</span>' +
+    /* 00–01 COSMOS — 시계 별들이 사라지지 않고 그대로 사람-점 그리드로 이어지는 다크 장면 */
+    '<section id="s-cosmos">' +
+      '<div class="pin-space" id="cosmosPin">' +
+        '<div class="pin-sticky cosmos">' +
+          '<canvas class="clock-canvas" id="clockCanvas"></canvas>' +
+          '<div class="cosmos-text">' +
+            '<div class="ct-layer ct-intro" id="ctIntro"><span id="introTyped"></span><span class="type-caret">|</span></div>' +
+            '<div class="ct-layer ct-hook" id="ctHook">' +
+              '<h1 class="title">' + esc(t.hook_title) + "</h1>" +
+              '<div class="cosmos-foot">' +
+                '<div class="count-lead">' + esc(t.count_lead) + "</div>" +
+                '<div class="count-eq">' +
+                  '<span class="ce-unit">₫10,000</span><span class="ce-op">×</span>' +
+                  '<span class="ce-people"><b id="cePeople">0</b>' + esc(t.people_suffix) + "</span>" +
+                  '<span class="ce-op">=</span><span class="ce-total" id="ceTotal">₫0</span>' +
+                "</div>" +
               "</div>" +
             "</div>" +
           "</div>" +
@@ -167,32 +157,7 @@
   var LERP = 0.10;
   var scrubs = [];   // { el, travel, cur, tgt, apply }
 
-  /* ----- 프롬프트 B: 01 카운터 (사람 1→1,000, ₫ 합계) ----- */
-  (function () {
-    var pin = document.getElementById("hookPin");
-    var box = document.getElementById("countPeople");
-    if (!pin || !box) return;
-    var pEl = document.getElementById("cePeople");
-    var tEl = document.getElementById("ceTotal");
-    var DOTS = 120, h = ""; for (var i = 0; i < DOTS; i++) h += "<i></i>";
-    box.innerHTML = h;
-    var dots = box.children, lastOn = 0, lastPeople = -1;
-    scrubs.push({
-      el: pin, travel: 0.82, cur: 0, tgt: 0,
-      apply: function (p) {
-        var people = Math.round(p * 1000);
-        if (people !== lastPeople) {
-          pEl.textContent = people.toLocaleString();
-          tEl.textContent = "₫" + (people * 10000).toLocaleString();
-          lastPeople = people;
-        }
-        var on = Math.round(p * DOTS);
-        if (on > lastOn) for (var i = lastOn; i < on; i++) dots[i].classList.add("on");
-        else if (on < lastOn) for (var j = on; j < lastOn; j++) dots[j].classList.remove("on");
-        lastOn = on;
-      }
-    });
-  })();
+  /* (01 카운터는 00–01 COSMOS 캔버스 장면에 통합됨) */
 
   /* ----- 프롬프트 C: 02 두 갈래 그래프 (stroke 드로잉 + 추월점) ----- */
   (function () {
@@ -262,26 +227,26 @@
     }, { passive: true });
   })();
 
-  /* ----- 00 인트로: 우주 별-시계 (흩어진 점 → 시계로 응집, 실제 시각) ----- */
+  /* ----- 00–01 COSMOS: 시계 별들이 그대로 사람-점 그리드로 모핑(실제 시각) ----- */
   (function () {
     var cv = document.getElementById("clockCanvas");
     if (!cv || !cv.getContext) return;
     var ctx = cv.getContext("2d");
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var W = 0, H = 0, cx = 0, cy = 0, R = 0, maxD = 1, tphase = 0;
-    var stars = [], dial = [], hHour = [], hMin = [], hSec = [], hub = {};
+    var P = [], stars = [], handLen = [0, 0, 0], N = 1000, lastPeople = -1;
     var start = null, asmDone = false, DUR = 2200;
+    if (window.location && window.location.hash === "#noanim") asmDone = true;  // 디버그: 응집 건너뛰기
     var ORANGE = [255, 122, 60], WARM = [255, 234, 216];
-    var rippleR = 80, mx = -9999, my = -9999, mouseOn = false;   // 마우스 가루 효과
-    var DRIVE = 0.06, RETURN = 0.006, STR = 60;                  // 퍼질 때(느릿) / 가라앉을 때(아주 느림) / 최대 퍼짐(px)
+    var rippleR = 80, mx = -9999, my = -9999, mouseOn = false;   // 마우스 물길 효과
+    var pmx = -9999, pmy = -9999, mvx = 0, mvy = 0;              // 커서 속도(끌고 가는 결)
+    var WAKE = 0.6, PUSHR = 2.0, DECAY = 0.988;                  // 결 세기 / 바깥 밀림 / 감쇠(1에 가까울수록 더 오래 남음)
+    var pin = document.getElementById("cosmosPin");
+    var ctIntro = document.getElementById("ctIntro"), ctHook = document.getElementById("ctHook");
+    var cePeople = document.getElementById("cePeople"), ceTotal = document.getElementById("ceTotal");
 
     /* 화면 바깥에서 날아올 출발 좌표 */
     function scatter() { var a = Math.random() * 6.2832, rad = R * 1.3 + Math.random() * maxD; return { sx: cx + Math.cos(a) * rad, sy: cy + Math.sin(a) * rad }; }
-    function buildHand(len, size, step) {
-      var arr = [];
-      for (var r = R * 0.05; r <= len; r += step) { var s = scatter(); arr.push({ r: r, size: size, sx: s.sx, sy: s.sy }); }
-      return arr;
-    }
 
     function resize() {
       var dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -289,13 +254,14 @@
       if (!W || !H) return;
       cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cx = W * 0.5; cy = H * 0.44;
-      R = Math.min(W, H) * (W < 720 ? 0.36 : 0.32);
+      cx = W * 0.5; cy = H * 0.46;
+      R = Math.min(W, H) * (W < 720 ? 0.34 : 0.30);
       maxD = Math.max(W, H) * 0.62;
-      rippleR = R * 1.0; STR = R * 0.26;
+      rippleR = R * 0.95;
+      handLen = [R * 0.50, R * 0.78, R * 0.92];
 
       // 배경 별
-      var n = Math.min(280, Math.round((W * H) / 9000));
+      var n = Math.min(260, Math.round((W * H) / 9000));
       stars = [];
       for (var i = 0; i < n; i++) stars.push({
         x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.5 + 0.25,
@@ -304,54 +270,63 @@
         base: 0.45 + Math.random() * 0.55
       });
 
-      // 베젤: 두꺼운 점들의 띠(안쪽 밝고 바깥 어둡게, 크기·밝기 제각각)
-      dial = [];
-      var rIn = R * 0.90, rOut = R * 1.14, band = rOut - rIn;
-      var nBezel = Math.max(300, Math.min(680, Math.round(R * 3.4)));
-      for (var k = 0; k < nBezel; k++) {
-        var ang = Math.random() * 6.2832, rad = rIn + Math.random() * band;
-        var ux = Math.sin(ang), uy = -Math.cos(ang), s = scatter();
-        dial.push({ tx: cx + ux * rad, ty: cy + uy * rad, rr: rad,
-          size: 0.55 + Math.random() * 1.5, bAdd: -0.06 + Math.random() * 0.18, sx: s.sx, sy: s.sy });
-      }
-      // 시(時) 표시 12개: 진한 별무리
-      for (var hh = 0; hh < 12; hh++) {
-        var ha = (hh / 12) * 6.2832, hx = Math.sin(ha), hy = -Math.cos(ha);
-        var hs = scatter();
-        dial.push({ tx: cx + hx * R, ty: cy + hy * R, rr: R, size: 2.7, bAdd: 0.38, sx: hs.sx, sy: hs.sy });
-        for (var q = 0; q < 5; q++) {
-          var rr2 = rIn + Math.random() * band, aa = ha + (Math.random() - 0.5) * 0.16;
-          var u2 = Math.sin(aa), v2 = -Math.cos(aa), sq = scatter();
-          dial.push({ tx: cx + u2 * rr2, ty: cy + v2 * rr2, rr: rr2,
-            size: 0.8 + Math.random() * 1.1, bAdd: 0.16, sx: sq.sx, sy: sq.sy });
-        }
-      }
-      hHour = buildHand(R * 0.50, 2.6, R * 0.020);
-      hMin = buildHand(R * 0.76, 2.0, R * 0.018);
-      hSec = buildHand(R * 0.90, 1.3, R * 0.017);
+      // 사람-점 그리드 좌표
+      var cols = W < 720 ? 25 : 40, rows = Math.ceil(N / cols);
+      var gw = Math.min(W * (W < 720 ? 0.86 : 0.6), 760), cell = gw / cols, gh = rows * cell;
+      var gx0 = cx - gw / 2 + cell / 2, gy0 = cy - gh / 2 + cell / 2;
 
-      start = asmDone ? -1 : null;   // 이미 응집 끝났으면 다시 흩어지지 않음
+      // 입자 풀: 시계(별) 목표 + 그리드 목표를 동시에 보유 → 스크롤로 모핑
+      var rIn = R * 0.90, rOut = R * 1.16, band = rOut - rIn;
+      var keep = (P.length === N), nHub = 24, nHands = 240;
+      for (var k = 0; k < N; k++) {
+        var p = keep ? P[k] : { ox: 0, oy: 0, m: 0.55 + Math.random() * 0.9 };
+        p.gx = gx0 + (k % cols) * cell; p.gy = gy0 + ((k / cols) | 0) * cell;
+        p.perp = 0;
+        if (k < nHub) {                                  // 중심 허브: 작고 정돈된 코어(2겹 동심원)
+          var hr0 = (k < 12) ? R * 0.016 : R * 0.032, ha0 = ((k % 12) / 12) * 6.2832;
+          p.role = 3; p.cxp = cx + Math.cos(ha0) * hr0; p.cyp = cy + Math.sin(ha0) * hr0; p.rr = hr0;
+          p.size = 1.5; p.bAdd = 0.5;
+        } else if (k < nHub + nHands) {                  // 시·분·초 바늘: 중심에서 살짝 띄워 끝으로 갈수록 가늘게
+          var hi = k - nHub, role, idx, cnt;
+          if (hi < 90) { role = 0; idx = hi; cnt = 90; }
+          else if (hi < 170) { role = 1; idx = hi - 90; cnt = 80; }
+          else { role = 2; idx = hi - 170; cnt = 70; }
+          p.role = role; p.frac = 0.14 + (idx / (cnt - 1)) * 0.86;
+          var base = role === 0 ? 2.6 : role === 1 ? 2.0 : 1.4;
+          p.size = base * (1 - p.frac * 0.6); p.bAdd = 0.15;
+        } else {                                         // 문자판: 깔끔한 동심원 링 + 12시 표시
+          var di = k - (nHub + nHands);
+          if (di < 12) { var ha = (di / 12) * 6.2832; p.role = 4; p.cxp = cx + Math.sin(ha) * R; p.cyp = cy - Math.cos(ha) * R; p.rr = R; p.size = 2.6; p.bAdd = 0.5; }
+          else {
+            var dj = di - 12, rings = 6, perRing = 121;
+            var ring = dj % rings, pos = (dj / rings) | 0;
+            var rad = R * (0.955 + ring * 0.016), aa = (pos / perRing) * 6.2832 + ring * 0.28;
+            p.role = 4; p.cxp = cx + Math.sin(aa) * rad; p.cyp = cy - Math.cos(aa) * rad; p.rr = rad;
+            p.size = 0.7 + 0.5 * (1 - ring / rings); p.bAdd = 0.06 + (ring < 2 ? 0.12 : 0);
+          }
+        }
+        if (!keep) { var sc = scatter(); p.sx = sc.sx; p.sy = sc.sy; P[k] = p; }
+      }
+      start = asmDone ? -1 : null;
     }
 
     function bright(d) { var b = 1 - 0.72 * (d / R); return b < 0.1 ? 0.1 : b > 1 ? 1 : b; }
 
-    /* 커서 주변으로 가루처럼 부드럽게 퍼졌다가 스르륵 다시 모임 (튕김 없는 ease 추종) */
+    /* 커서가 지나가며 점을 끌고 가(물길), 흐트러진 자리가 남았다가 아주 천천히 감쇠하며 정렬 */
     function disturb(p, bx, by) {
       if (p.ox === undefined) { p.ox = 0; p.oy = 0; p.m = 0.55 + Math.random() * 0.9; }
-      var tx = 0, ty = 0;
       if (mouseOn) {
         var dx = bx - mx, dy = by - my, dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < rippleR) {
-          var f = 1 - dist / rippleR; f = f * f;            // 부드러운 falloff
-          var inv = dist > 0.001 ? 1 / dist : 0, s = STR * f * p.m;
-          tx = (dx * inv) * s - (dy * inv) * s * 0.25;       // 약간의 소용돌이 → 더 유체같이
-          ty = (dy * inv) * s + (dx * inv) * s * 0.25;
+          var f = 1 - dist / rippleR; f = f * f * p.m;
+          var inv = dist > 0.001 ? 1 / dist : 0;
+          p.ox += mvx * f * WAKE + dx * inv * f * PUSHR;   // 커서 진행 방향으로 끌림 + 약한 바깥 밀림
+          p.oy += mvy * f * WAKE + dy * inv * f * PUSHR;
         }
       }
-      // 밀릴 땐 빠르게 반응, 풀릴 땐 천천히 제자리로
-      var k = (tx * tx + ty * ty) > (p.ox * p.ox + p.oy * p.oy) ? DRIVE : RETURN;
-      p.ox += (tx - p.ox) * k;
-      p.oy += (ty - p.oy) * k;
+      p.ox *= DECAY; p.oy *= DECAY;                        // 천천히 제자리로
+      var lim = rippleR * 0.8, m2 = p.ox * p.ox + p.oy * p.oy;
+      if (m2 > lim * lim) { var sc = lim / Math.sqrt(m2); p.ox *= sc; p.oy *= sc; }
     }
 
     function particle(x, y, b, sizeBase) {
@@ -367,17 +342,6 @@
       ctx.globalAlpha = 1; ctx.shadowBlur = 0;
     }
 
-    function drawHand(arr, theta, e, ix) {
-      var ux = Math.sin(theta), uy = -Math.cos(theta);
-      for (var i = 0; i < arr.length; i++) {
-        var h = arr[i];
-        var bx = (cx + ux * h.r) * e + h.sx * ix, by = (cy + uy * h.r) * e + h.sy * ix;
-        disturb(h, bx, by);
-        var sh = 0.9 + 0.1 * Math.sin(tphase * 0.05 + h.r * 0.06);
-        particle(bx + h.ox * e, by + h.oy * e, bright(h.r) * sh * (0.32 + 0.68 * e), h.size);
-      }
-    }
-
     function frame() {
       if (!W || !H) { requestAnimationFrame(frame); return; }
       tphase += 1;
@@ -385,15 +349,33 @@
       if (reduce || asmDone) e = 1;
       else if (start === null) { start = Date.now(); e = 0; }
       else if (start < 0) e = 1;
-      else { var p = (Date.now() - start) / DUR; if (p >= 1) { p = 1; asmDone = true; } e = 1 - Math.pow(1 - p, 3); }
+      else { var pp = (Date.now() - start) / DUR; if (pp >= 1) { pp = 1; asmDone = true; } e = 1 - Math.pow(1 - pp, 3); }
       var ix = 1 - e;
 
+      // 스크롤 진행도(0~1) over cosmos pin → 모핑/카운트/문구 크로스페이드
+      var prog = 0;
+      if (pin) { var pd = pin.offsetHeight - window.innerHeight; prog = pd > 0 ? (window.pageYOffset - pin.offsetTop) / pd : 0; prog = prog < 0 ? 0 : prog > 1 ? 1 : prog; }
+      var mr = (prog - 0.30) / 0.26; mr = mr < 0 ? 0 : mr > 1 ? 1 : mr; var morph = mr * mr * (3 - 2 * mr);
+      var countP = (prog - 0.60) / 0.36; countP = countP < 0 ? 0 : countP > 1 ? 1 : countP;
+      var introOp = 1 - (prog - 0.24) / 0.12; introOp = introOp < 0 ? 0 : introOp > 1 ? 1 : introOp;
+      var hookOp = (prog - 0.46) / 0.16; hookOp = hookOp < 0 ? 0 : hookOp > 1 ? 1 : hookOp;
+      if (ctIntro) ctIntro.style.opacity = introOp.toFixed(3);
+      if (ctHook) ctHook.style.opacity = hookOp.toFixed(3);
+      var people = Math.round(countP * 1000);
+      if (people !== lastPeople && cePeople) {
+        cePeople.textContent = people.toLocaleString();
+        ceTotal.textContent = "₫" + (people * 10000).toLocaleString();
+        lastPeople = people;
+      }
+
       ctx.clearRect(0, 0, W, H);
+      var nf = 1 - morph * 0.7;
       var g = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, maxD);
-      g.addColorStop(0, "rgba(255,122,60," + (0.08 * e).toFixed(3) + ")"); g.addColorStop(1, "rgba(10,7,18,0)");
+      g.addColorStop(0, "rgba(255,122,60," + (0.08 * e * nf).toFixed(3) + ")"); g.addColorStop(1, "rgba(10,7,18,0)");
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-      // 배경 별 (중심에서 멀수록 어둡게)
+      // 배경 별
+      var sf = 1 - morph * 0.65;
       for (var i = 0; i < stars.length; i++) {
         var s = stars[i];
         if (!reduce) { s.x += s.vx; s.y += s.vy; s.a += s.tw;
@@ -402,34 +384,39 @@
         var dd = Math.sqrt((s.x - cx) * (s.x - cx) + (s.y - cy) * (s.y - cy));
         var df = 1 - dd / maxD; if (df < 0.07) df = 0.07;
         var tw = 0.4 + 0.6 * Math.abs(Math.sin(s.a));
-        ctx.globalAlpha = s.base * tw * df * 0.7;
+        ctx.globalAlpha = s.base * tw * df * 0.7 * sf;
         ctx.fillStyle = (i % 5 === 0) ? "#ff9a5c" : "#ffe6d2";
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.2832); ctx.fill();
         ctx.globalAlpha = 1;
       }
 
-      // 문자판 (흩어진 위치 → 제자리로)
-      for (var d2 = 0; d2 < dial.length; d2++) {
-        var dp = dial[d2];
-        var bx = dp.tx * e + dp.sx * ix, by = dp.ty * e + dp.sy * ix;
-        disturb(dp, bx, by);
-        var fl = 0.85 + 0.15 * Math.sin(tphase * 0.04 + d2);
-        particle(bx + dp.ox * e, by + dp.oy * e, (bright(dp.rr) + dp.bAdd) * fl * (0.32 + 0.68 * e), dp.size);
-      }
-
-      // 실제 시각 바늘
+      // 바늘 각도(실제 시각)
       var now = new Date();
-      var sec = now.getSeconds() + now.getMilliseconds() / 1000;
-      var min = now.getMinutes() + sec / 60;
-      var hr = (now.getHours() % 12) + min / 60;
-      drawHand(hHour, (hr / 12) * 6.2832, e, ix);
-      drawHand(hMin, (min / 60) * 6.2832, e, ix);
-      if (!reduce) drawHand(hSec, (sec / 60) * 6.2832, e, ix);
+      var sc2 = now.getSeconds() + now.getMilliseconds() / 1000;
+      var mn2 = now.getMinutes() + sc2 / 60;
+      var hr2 = (now.getHours() % 12) + mn2 / 60;
+      var ang = [(hr2 / 12) * 6.2832, (mn2 / 60) * 6.2832, (sc2 / 60) * 6.2832];
 
-      // 중심 허브 — 마우스 가루 효과 적용
-      disturb(hub, cx, cy);
-      var hx = cx + hub.ox * e, hy = cy + hub.oy * e;
-      particle(hx, hy, e, 4.6); particle(hx, hy, e, 2.2);
+      // 커서 속도(끌고 가는 결) — 정지 시 0
+      if (mouseOn && pmx !== -9999) { var dmx = mx - pmx, dmy = my - pmy; mvx = dmx < -60 ? -60 : dmx > 60 ? 60 : dmx; mvy = dmy < -60 ? -60 : dmy > 60 ? 60 : dmy; }
+      else { mvx = 0; mvy = 0; }
+      pmx = mx; pmy = my;
+
+      // 입자: 시계 위치 → 그리드 위치로 모핑, 카운트만큼 점등
+      var mf = (1 - morph) * e;
+      for (var k = 0; k < N; k++) {
+        var p = P[k], clxp, clyp, cdist;
+        if (p.role < 3) { var th = ang[p.role], ux = Math.sin(th), uy = -Math.cos(th), pp = p.perp || 0; cdist = p.frac * handLen[p.role]; clxp = cx + ux * cdist - uy * pp; clyp = cy + uy * cdist + ux * pp; }
+        else { clxp = p.cxp; clyp = p.cyp; cdist = p.rr; }
+        var clx = clxp * e + p.sx * ix, cly = clyp * e + p.sy * ix;
+        var bx = clx + (p.gx - clx) * morph, by = cly + (p.gy - cly) * morph;
+        disturb(p, bx, by);
+        var cb = (p.role === 3) ? 1 : (bright(cdist) + (p.bAdd || 0));
+        var flick = 0.86 + 0.14 * Math.sin(tphase * 0.04 + k);
+        var gb = (k < people) ? (0.72 + 0.28 * flick) : 0.14;
+        var b = (cb * (1 - morph) + gb * morph) * (0.32 + 0.68 * e);
+        particle(bx + p.ox * mf, by + p.oy * mf, b, p.size * (1 - morph) + 1.5 * morph);
+      }
       requestAnimationFrame(frame);
     }
 
@@ -446,21 +433,17 @@
 
   /* ----- 00 인트로 문구 타이핑 ----- */
   (function () {
-    var el = document.querySelector(".intro-line");
+    var el = document.getElementById("introTyped");
     if (!el) return;
-    var full = el.textContent;
+    var full = t.intro_line || "";
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var txt = document.createElement("span");
-    var caret = document.createElement("span");
-    caret.className = "type-caret"; caret.textContent = "|";
-    el.textContent = ""; el.appendChild(txt); el.appendChild(caret);
-    if (reduce) { txt.textContent = full; return; }
+    if (reduce) { el.textContent = full; return; }
     var i = 0;
     function tick() {
-      txt.textContent = full.slice(0, i);
+      el.textContent = full.slice(0, i);
       if (i++ <= full.length) setTimeout(tick, 95);
     }
-    setTimeout(tick, 2400);   // 시계가 다 응집된 뒤 타이핑 시작 (커서는 그 전부터 깜빡)
+    setTimeout(tick, 2400);   // 시계가 응집된 뒤 타이핑 시작
   })();
 
   /* ----- read + render ----- */
