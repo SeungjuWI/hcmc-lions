@@ -45,7 +45,7 @@
       '<canvas class="clock-canvas" id="clockCanvas"></canvas>' +
       '<div class="inner intro-inner">' +
         '<div class="intro-line reveal">' + esc(t.intro_line) + "</div>" +
-        '<div class="scroll-cue"><span>' + esc(t.scroll_cue) + "</span><i></i></div>" +
+        '<div class="scroll-cue"><i></i></div>' +
       "</div>" +
     "</section>" +
 
@@ -269,7 +269,7 @@
     var ctx = cv.getContext("2d");
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var W = 0, H = 0, cx = 0, cy = 0, R = 0, maxD = 1, tphase = 0;
-    var stars = [], dial = [], hHour = [], hMin = [], hSec = [];
+    var stars = [], dial = [], hHour = [], hMin = [], hSec = [], hub = {};
     var start = null, asmDone = false, DUR = 2200;
     var ORANGE = [255, 122, 60], WARM = [255, 234, 216];
     var rippleR = 80, mx = -9999, my = -9999, mouseOn = false;   // 마우스 가루 효과
@@ -426,8 +426,10 @@
       drawHand(hMin, (min / 60) * 6.2832, e, ix);
       if (!reduce) drawHand(hSec, (sec / 60) * 6.2832, e, ix);
 
-      // 중심 허브 (응집 끝날수록 또렷)
-      particle(cx, cy, e, 4.6); particle(cx, cy, e, 2.2);
+      // 중심 허브 — 마우스 가루 효과 적용
+      disturb(hub, cx, cy);
+      var hx = cx + hub.ox * e, hy = cy + hub.oy * e;
+      particle(hx, hy, e, 4.6); particle(hx, hy, e, 2.2);
       requestAnimationFrame(frame);
     }
 
