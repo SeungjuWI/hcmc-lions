@@ -10,12 +10,17 @@ window.CONTENT = {
     other_href: "index-vi.html",
     hint: "SCROLL",
 
-    intro_line: "당신은 지금, 시간을 팔고 있습니다",
+    intro_key: "시간",
+    intro_line: "지금 당신이 팔고 있는 것",
     scroll_cue: "스크롤",
 
     hook_eyebrow: "01 — HOOK",
-    hook_title: "당신의 시간에는 한계가 있습니다",
-    hook_sub: "부업은 돈 버는 ‘경로’를 늘릴 뿐입니다. 하루는 여전히 24시간이고요.",
+    hook_key: "한계",
+    hook_sub: "부업을 늘려도 하루는 24시간 — 결국 시간만큼만 법니다.",
+    scale_key: "사업",
+    scale_sub: "시간과 분리되는, 단 하나의 길.",
+    ai_key: "AI",
+    ai_sub: "예전엔 팀·자본·기술이 필요했던 그 구조 — 이제 AI로, 혼자.",
 
     shift_eyebrow: "02 — SHIFT",
     shift_title: "사업은 시급을 계산하지 않습니다",
@@ -62,12 +67,17 @@ window.CONTENT = {
     other_href: "index-ko.html",
     hint: "CUỘN",
 
-    intro_line: "Ngay lúc này, bạn đang bán thời gian của mình",
+    intro_key: "Thời gian",
+    intro_line: "Thứ bạn đang bán ngay lúc này",
     scroll_cue: "Cuộn xuống",
 
     hook_eyebrow: "01 — HOOK",
-    hook_title: "Thời gian của bạn là có giới hạn",
-    hook_sub: "Nghề tay trái chỉ làm tăng thêm ‘con đường’ kiếm tiền. Một ngày vẫn chỉ có 24 giờ.",
+    hook_key: "Giới hạn",
+    hook_sub: "Làm thêm cũng vô ích — một ngày chỉ 24 giờ. Cuối cùng chỉ kiếm bằng đúng thời gian bỏ ra.",
+    scale_key: "Kinh doanh",
+    scale_sub: "Con đường duy nhất tách rời khỏi thời gian.",
+    ai_key: "AI",
+    ai_sub: "Cấu trúc từng cần cả đội ngũ, vốn và kỹ thuật — giờ chỉ cần AI, một mình bạn.",
 
     shift_eyebrow: "02 — SHIFT",
     shift_title: "Kinh doanh không tính theo lương giờ",

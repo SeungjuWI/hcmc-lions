@@ -46,9 +46,19 @@
         '<div class="pin-sticky cosmos">' +
           '<canvas class="clock-canvas" id="clockCanvas"></canvas>' +
           '<div class="cosmos-text">' +
-            '<div class="ct-layer ct-intro" id="ctIntro"><span id="introTyped"></span><span class="type-caret">|</span></div>' +
-            '<div class="ct-layer ct-hook" id="ctHook">' +
-              '<h1 class="title">' + esc(t.hook_title) + "</h1>" +
+            '<div class="ct-layer ct-beat ct-intro" id="ctIntro">' +
+              '<div class="ct-key">' + esc(t.intro_key) + "</div>" +
+              '<div class="ct-sub"><span id="introTyped"></span><span class="type-caret">|</span></div>' +
+            "</div>" +
+            '<div class="ct-layer ct-beat ct-shift2" id="ctShift2">' +
+              '<div class="ct-key">' + esc(t.hook_key) + "</div>" +
+              '<p class="ct-sub">' + esc(t.hook_sub) + "</p>" +
+            "</div>" +
+            '<div class="ct-layer ct-beat ct-hook" id="ctHook">' +
+              '<div class="ct-top">' +
+                '<div class="ct-key">' + esc(t.scale_key) + "</div>" +
+                '<p class="ct-sub">' + esc(t.scale_sub) + "</p>" +
+              "</div>" +
               '<div class="cosmos-foot">' +
                 '<div class="count-lead">' + esc(t.count_lead) + "</div>" +
                 '<div class="count-eq">' +
@@ -57,6 +67,10 @@
                   '<span class="ce-op">=</span><span class="ce-total" id="ceTotal">₫0</span>' +
                 "</div>" +
               "</div>" +
+            "</div>" +
+            '<div class="ct-layer ct-beat ct-ai" id="ctAi">' +
+              '<div class="ct-key ct-key-ai">' + esc(t.ai_key) + "</div>" +
+              '<p class="ct-sub">' + esc(t.ai_sub) + "</p>" +
             "</div>" +
           "</div>" +
         "</div>" +
@@ -232,6 +246,32 @@
     var cv = document.getElementById("clockCanvas");
     if (!cv || !cv.getContext) return;
     var ctx = cv.getContext("2d");
+
+    /* 글로우 스프라이트(한 번만 생성) — 입자마다 shadowBlur 켜는 대신 drawImage 로 그려 GPU 가속 */
+    var glowSprite = (function () {
+      var c = document.createElement("canvas"), s = 48;
+      c.width = c.height = s;
+      var g2 = c.getContext("2d");
+      var rg = g2.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+      rg.addColorStop(0, "rgba(255,150,95,0.95)");
+      rg.addColorStop(0.35, "rgba(255,122,60,0.45)");
+      rg.addColorStop(1, "rgba(255,122,60,0)");
+      g2.fillStyle = rg; g2.beginPath(); g2.arc(s / 2, s / 2, s / 2, 0, 6.2832); g2.fill();
+      return c;
+    })();
+
+    /* 원자 궤도: 3개의 타원 궤도(Z축 기준 120°씩 회전, 공통 틸트)의 3D 기저벡터 U,V 를 한 번 계산 */
+    var ATOM = (function () {
+      var tilt = 1.15, U0 = [1, 0, 0], V0 = [0, Math.cos(tilt), Math.sin(tilt)], orbits = [];
+      for (var i = 0; i < 3; i++) {
+        var b = i * 2.0944, cb = Math.cos(b), sb = Math.sin(b);   // 120°
+        orbits.push({
+          ux: U0[0] * cb - U0[1] * sb, uy: U0[0] * sb + U0[1] * cb, uz: U0[2],
+          vx: V0[0] * cb - V0[1] * sb, vy: V0[0] * sb + V0[1] * cb, vz: V0[2]
+        });
+      }
+      return orbits;
+    })();
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var W = 0, H = 0, cx = 0, cy = 0, R = 0, maxD = 1, tphase = 0;
     var P = [], stars = [], handLen = [0, 0, 0], N = 1000, lastPeople = -1;
@@ -242,7 +282,10 @@
     var pmx = -9999, pmy = -9999, mvx = 0, mvy = 0;              // 커서 속도(끌고 가는 결)
     var WAKE = 0.6, PUSHR = 2.0, DECAY = 0.988;                  // 결 세기 / 바깥 밀림 / 감쇠(1에 가까울수록 더 오래 남음)
     var pin = document.getElementById("cosmosPin");
+    var pinTop = 0, pinTravel = 1, sprog = 0, gyShift = 0;   // 핀 기하 캐시 + 보간 진행도 + 그리드 하강량
     var ctIntro = document.getElementById("ctIntro"), ctHook = document.getElementById("ctHook");
+    var ctShift2 = document.getElementById("ctShift2");
+    var ctAi = document.getElementById("ctAi");
     var cePeople = document.getElementById("cePeople"), ceTotal = document.getElementById("ceTotal");
 
     /* 화면 바깥에서 날아올 출발 좌표 */
@@ -273,7 +316,13 @@
       // 사람-점 그리드 좌표
       var cols = W < 720 ? 25 : 40, rows = Math.ceil(N / cols);
       var gw = Math.min(W * (W < 720 ? 0.86 : 0.6), 760), cell = gw / cols, gh = rows * cell;
-      var gx0 = cx - gw / 2 + cell / 2, gy0 = cy - gh / 2 + cell / 2;
+      // 그리드는 시계 중심보다 살짝 아래로 → 상단 hook 타이틀과 겹치지 않게(시계는 중앙 유지)
+      gyShift = H * 0.07;
+      var gx0 = cx - gw / 2 + cell / 2, gy0 = cy - gh / 2 + cell / 2 + gyShift;
+
+      // ★ step2 '부업선': 시간에 비례해 오르다 천장에서 평평해지는 선(부업의 한계)
+      var Lx0 = cx - gw * 0.45, Lx1 = cx + gw * 0.45, Lxk = cx;
+      var LyB = cy + gh * 0.55 + gyShift * 0.5, LyT = cy + gh * 0.05 + gyShift * 0.5, Lknee = 0.55;
 
       // 입자 풀: 시계(별) 목표 + 그리드 목표를 동시에 보유 → 스크롤로 모핑
       var rIn = R * 0.90, rOut = R * 1.16, band = rOut - rIn;
@@ -282,6 +331,29 @@
         var p = keep ? P[k] : { ox: 0, oy: 0, m: 0.55 + Math.random() * 0.9 };
         p.gx = gx0 + (k % cols) * cell; p.gy = gy0 + ((k / cols) | 0) * cell;
         p.perp = 0;
+        // 모핑 웨이브: 대각선(좌상→우하) 순서로 시차 출발 + 입자별 곡선 휨/흔들림 위상
+        p.delay = ((k % cols) / cols + (((k / cols) | 0) / rows)) * 0.5;
+        if (p.curve === undefined) {
+          p.curve = (k % 2 ? 1 : -1) * (0.45 + Math.random() * 0.85);
+          p.ph = Math.random() * 6.2832;
+          p.lj = (Math.random() - 0.5);
+        }
+        // 부업선 위 위치(인덱스 순서대로): 무릎(Lknee)까지 비례 상승 → 이후 천장에서 평평
+        var t2 = N > 1 ? k / (N - 1) : 0;
+        if (t2 < Lknee) { var f2 = t2 / Lknee; p.lx = Lx0 + (Lxk - Lx0) * f2; p.ly = LyB + (LyT - LyB) * f2; }
+        else { var f3 = (t2 - Lknee) / (1 - Lknee); p.lx = Lxk + (Lx1 - Lxk) * f3; p.ly = LyT; }
+        p.ly += p.lj * 3.5;
+        // ★ step4 'AI 코어': 1000명 → 하나의 빛나는 응축 코어(다수→하나). 중심 작은 원반(가운데로 갈수록 빽빽)
+        // 원자: 약 14%는 핵(중심 구), 나머지는 3개 궤도의 전자로 분배 (한 번만 배정)
+        if (p.atype === undefined) {
+          if (k < N * 0.14) {                                   // 핵: 작은 구 안 랜덤 분포
+            p.atype = 0;
+            var u1 = Math.random() * 2 - 1, u2 = Math.random() * 6.2832, rr = Math.cbrt(Math.random()), ss = Math.sqrt(1 - u1 * u1);
+            p.nx = ss * Math.cos(u2) * rr; p.ny = u1 * rr; p.nz = ss * Math.sin(u2) * rr;
+          } else {                                              // 전자: 궤도 + 시작 위상 + 진행 방향
+            p.atype = 1; p.orb = k % 3; p.phi = Math.random() * 6.2832; p.pdir = (k % 2) ? 1 : -1;
+          }
+        }
         if (k < nHub) {                                  // 중심 허브: 작고 정돈된 코어(2겹 동심원)
           var hr0 = (k < 12) ? R * 0.016 : R * 0.032, ha0 = ((k % 12) / 12) * 6.2832;
           p.role = 3; p.cxp = cx + Math.cos(ha0) * hr0; p.cyp = cy + Math.sin(ha0) * hr0; p.rr = hr0;
@@ -307,6 +379,7 @@
         }
         if (!keep) { var sc = scatter(); p.sx = sc.sx; p.sy = sc.sy; P[k] = p; }
       }
+      if (pin) { pinTop = pin.offsetTop; pinTravel = Math.max(1, pin.offsetHeight - window.innerHeight); }
       start = asmDone ? -1 : null;
     }
 
@@ -330,16 +403,19 @@
     }
 
     function particle(x, y, b, sizeBase) {
-      if (b <= 0.01) return; if (b > 1) b = 1;
+      if (b <= 0.012) return; if (b > 1) b = 1;
       var t = Math.pow(b, 1.3);
+      if (b > 0.4) {                                  // 밝은 점만 글로우 스프라이트로(저렴) — shadowBlur 미사용
+        var gsz = sizeBase * (4 + 6 * b);
+        ctx.globalAlpha = (b - 0.4) * 0.85;
+        ctx.drawImage(glowSprite, x - gsz * 0.5, y - gsz * 0.5, gsz, gsz);
+      }
       ctx.fillStyle = "rgb(" + Math.round(ORANGE[0] + (WARM[0] - ORANGE[0]) * t) + ","
                              + Math.round(ORANGE[1] + (WARM[1] - ORANGE[1]) * t) + ","
                              + Math.round(ORANGE[2] + (WARM[2] - ORANGE[2]) * t) + ")";
-      ctx.shadowBlur = b > 0.45 ? (3 + 7 * b) : 0;
-      if (ctx.shadowBlur) ctx.shadowColor = "#ff7a3c";
-      ctx.globalAlpha = 0.16 + 0.84 * b;
+      ctx.globalAlpha = 0.18 + 0.82 * b;
       ctx.beginPath(); ctx.arc(x, y, sizeBase * (0.55 + 0.7 * b), 0, 6.2832); ctx.fill();
-      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
     }
 
     function frame() {
@@ -352,15 +428,29 @@
       else { var pp = (Date.now() - start) / DUR; if (pp >= 1) { pp = 1; asmDone = true; } e = 1 - Math.pow(1 - pp, 3); }
       var ix = 1 - e;
 
-      // 스크롤 진행도(0~1) over cosmos pin → 모핑/카운트/문구 크로스페이드
-      var prog = 0;
-      if (pin) { var pd = pin.offsetHeight - window.innerHeight; prog = pd > 0 ? (window.pageYOffset - pin.offsetTop) / pd : 0; prog = prog < 0 ? 0 : prog > 1 ? 1 : prog; }
-      var mr = (prog - 0.30) / 0.26; mr = mr < 0 ? 0 : mr > 1 ? 1 : mr; var morph = mr * mr * (3 - 2 * mr);
-      var countP = (prog - 0.60) / 0.36; countP = countP < 0 ? 0 : countP > 1 ? 1 : countP;
-      var introOp = 1 - (prog - 0.24) / 0.12; introOp = introOp < 0 ? 0 : introOp > 1 ? 1 : introOp;
-      var hookOp = (prog - 0.46) / 0.16; hookOp = hookOp < 0 ? 0 : hookOp > 1 ? 1 : hookOp;
+      // 스크롤 진행도(0~1) over cosmos pin → 부드럽게 보간(sprog) 후 모핑/카운트/문구 구동.
+      // 스크롤 이벤트가 띄엄띄엄 와도 매 프레임 목표로 lerp 하므로 모핑이 끊기지 않음.
+      var raw = (window.pageYOffset - pinTop) / pinTravel;
+      raw = raw < 0 ? 0 : raw > 1 ? 1 : raw;
+      sprog += (raw - sprog) * 0.06;   // 낮을수록 모션이 천천히 미끄러지듯 따라감
+      if (Math.abs(raw - sprog) < 0.0004) sprog = raw;
+      var prog = sprog;
+      // ★ 4비트: 시계(1·시간) → 부업선(2·한계) → 사람그리드+카운트(3·사업/스케일) → 코어(4·AI, 다수→하나)
+      var m1 = (prog - 0.12) / 0.22; m1 = m1 < 0 ? 0 : m1 > 1 ? 1 : m1;   // 시계 → 부업선
+      var m2 = (prog - 0.42) / 0.18; m2 = m2 < 0 ? 0 : m2 > 1 ? 1 : m2;   // 부업선 → 그리드
+      var countP = (prog - 0.60) / 0.16; countP = countP < 0 ? 0 : countP > 1 ? 1 : countP;
+      var m3 = (prog - 0.80) / 0.12; m3 = m3 < 0 ? 0 : m3 > 1 ? 1 : m3;   // 그리드 → AI 코어
+      var exitP = (prog - 0.96) / 0.04; exitP = exitP < 0 ? 0 : exitP > 1 ? 1 : exitP;
+      var introOp = 1 - (prog - 0.10) / 0.06; introOp = introOp < 0 ? 0 : introOp > 1 ? 1 : introOp;   // 1: ~0.16 사라짐
+      var shiftOp = Math.min((prog - 0.26) / 0.05, (0.42 - prog) / 0.05);                               // 2: 0.26~0.31 등장 / 0.37~0.42 사라짐
+      shiftOp = shiftOp < 0 ? 0 : shiftOp > 1 ? 1 : shiftOp;
+      var hookOp = Math.min((prog - 0.54) / 0.05, (0.80 - prog) / 0.05);                                // 3: 0.54~0.59 등장 / 0.75~0.80 사라짐
+      hookOp = hookOp < 0 ? 0 : hookOp > 1 ? 1 : hookOp;
+      var aiOp = (prog - 0.87) / 0.05; aiOp = aiOp < 0 ? 0 : aiOp > 1 ? 1 : aiOp;                        // 4: 0.87~0.92 등장
       if (ctIntro) ctIntro.style.opacity = introOp.toFixed(3);
+      if (ctShift2) ctShift2.style.opacity = shiftOp.toFixed(3);
       if (ctHook) ctHook.style.opacity = hookOp.toFixed(3);
+      if (ctAi) ctAi.style.opacity = (aiOp * (1 - exitP)).toFixed(3);
       var people = Math.round(countP * 1000);
       if (people !== lastPeople && cePeople) {
         cePeople.textContent = people.toLocaleString();
@@ -369,13 +459,13 @@
       }
 
       ctx.clearRect(0, 0, W, H);
-      var nf = 1 - morph * 0.7;
+      var nf = 1 - m1 * 0.7;
       var g = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, maxD);
-      g.addColorStop(0, "rgba(255,122,60," + (0.08 * e * nf).toFixed(3) + ")"); g.addColorStop(1, "rgba(10,7,18,0)");
+      g.addColorStop(0, "rgba(255,122,60," + (0.08 * e * nf * (1 - exitP)).toFixed(3) + ")"); g.addColorStop(1, "rgba(10,7,18,0)");
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
       // 배경 별
-      var sf = 1 - morph * 0.65;
+      var sf = 1 - m1 * 0.65;
       for (var i = 0; i < stars.length; i++) {
         var s = stars[i];
         if (!reduce) { s.x += s.vx; s.y += s.vy; s.a += s.tw;
@@ -384,7 +474,7 @@
         var dd = Math.sqrt((s.x - cx) * (s.x - cx) + (s.y - cy) * (s.y - cy));
         var df = 1 - dd / maxD; if (df < 0.07) df = 0.07;
         var tw = 0.4 + 0.6 * Math.abs(Math.sin(s.a));
-        ctx.globalAlpha = s.base * tw * df * 0.7 * sf;
+        ctx.globalAlpha = s.base * tw * df * 0.7 * sf * (1 - exitP);
         ctx.fillStyle = (i % 5 === 0) ? "#ff9a5c" : "#ffe6d2";
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.2832); ctx.fill();
         ctx.globalAlpha = 1;
@@ -402,20 +492,69 @@
       else { mvx = 0; mvy = 0; }
       pmx = mx; pmy = my;
 
-      // 입자: 시계 위치 → 그리드 위치로 모핑, 카운트만큼 점등
-      var mf = (1 - morph) * e;
+      // 입자: 시계 → 부업선 → 사람그리드 2단계 모핑(둘 다 대각 시차 웨이브), 카운트만큼 점등
+      var STAG = 0.62;                 // 시차 폭(클수록 웨이브가 길게/천천히 번짐)
+      var exitRise = exitP * exitP * 110;  // 핸드오프 상승량(px)
+      var mf = (1 - m1) * e;
+      // AI 코어(회전하는 원자) — Y축 턴테이블 회전 + 전자 궤도 진행값을 프레임당 1회 계산
+      var atomA = tphase * 0.011, atomCos = Math.cos(atomA), atomSin = Math.sin(atomA);
+      var atomScale = R * 0.72, atomCY = cy + gyShift * 0.3, eFlow = tphase * 0.022;
       for (var k = 0; k < N; k++) {
         var p = P[k], clxp, clyp, cdist;
         if (p.role < 3) { var th = ang[p.role], ux = Math.sin(th), uy = -Math.cos(th), pp = p.perp || 0; cdist = p.frac * handLen[p.role]; clxp = cx + ux * cdist - uy * pp; clyp = cy + uy * cdist + ux * pp; }
         else { clxp = p.cxp; clyp = p.cyp; cdist = p.rr; }
         var clx = clxp * e + p.sx * ix, cly = clyp * e + p.sy * ix;
-        var bx = clx + (p.gx - clx) * morph, by = cly + (p.gy - cly) * morph;
+
+        // 세 단계 시차 모핑값(대각 웨이브)
+        var d = p.delay;
+        var pm1 = (m1 - d * STAG) / (1 - STAG); pm1 = pm1 < 0 ? 0 : pm1 > 1 ? 1 : pm1; pm1 = pm1 * pm1 * (3 - 2 * pm1);
+        var pm2 = (m2 - d * STAG) / (1 - STAG); pm2 = pm2 < 0 ? 0 : pm2 > 1 ? 1 : pm2; pm2 = pm2 * pm2 * (3 - 2 * pm2);
+        var pm3 = (m3 - d * STAG) / (1 - STAG); pm3 = pm3 < 0 ? 0 : pm3 > 1 ? 1 : pm3; pm3 = pm3 * pm3 * (3 - 2 * pm3);
+
+        // 1단계: 시계 → 부업선 (직선 수렴)
+        var ax = clx + (p.lx - clx) * pm1, ay = cly + (p.ly - cly) * pm1;
+
+        // 2단계: 부업선 → 그리드 (수직 곡선 궤적 + 비행 중 미세 흔들림 — 스케일로 '흩어짐')
+        var ddx = p.gx - ax, ddy = p.gy - ay;
+        var dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        var arc = pm2 * (1 - pm2) * 4;                // 0→1→0
+        var ca = p.curve * dist * 0.20 * arc;
+        var nlen = dist > 0.001 ? 1 / dist : 0;
+        var shimmer = arc * 2.0 * Math.sin(tphase * 0.06 + p.ph);
+        var gx = ax + ddx * pm2 - ddy * nlen * ca + Math.cos(p.ph) * shimmer;
+        var gy = ay + ddy * pm2 + ddx * nlen * ca + Math.sin(p.ph) * shimmer;
+
+        // 3단계: 그리드(1000명) → 회전하는 AI '원자'로 응축
+        var aX, aY, aZ;
+        if (p.atype === 0) {                                      // 핵: 작은 중심 구
+          aX = p.nx * 0.20; aY = p.ny * 0.20; aZ = p.nz * 0.20;
+        } else {                                                  // 전자: 궤도 위를 흐름
+          var o = ATOM[p.orb], ph = p.phi + eFlow * p.pdir, cph = Math.cos(ph), sph = Math.sin(ph);
+          aX = o.ux * cph + o.vx * sph; aY = o.uy * cph + o.vy * sph; aZ = o.uz * cph + o.vz * sph;
+        }
+        var rX = aX * atomCos + aZ * atomSin;                     // 전체 Y축 회전
+        var rZ = -aX * atomSin + aZ * atomCos;
+        var persp = 1 / (1 + rZ * 0.32);                          // 가까운 쪽(앞) 크게
+        var aix = cx + rX * atomScale * persp;
+        var aiy = atomCY + aY * atomScale * persp;
+        var aishade = 0.5 - rZ * 0.5;                             // 앞면(rZ<0) 밝게
+        var asz = (p.atype === 0 ? 1.7 : 1.1) * (0.7 + 0.55 * aishade) * persp;
+        var bx = gx + (aix - gx) * pm3;
+        var by = gy + (aiy - gy) * pm3 - exitRise;
+
         disturb(p, bx, by);
-        var cb = (p.role === 3) ? 1 : (bright(cdist) + (p.bAdd || 0));
         var flick = 0.86 + 0.14 * Math.sin(tphase * 0.04 + k);
-        var gb = (k < people) ? (0.72 + 0.28 * flick) : 0.14;
-        var b = (cb * (1 - morph) + gb * morph) * (0.32 + 0.68 * e);
-        particle(bx + p.ox * mf, by + p.oy * mf, b, p.size * (1 - morph) + 1.5 * morph);
+        var bClock = (p.role === 3) ? 1 : (bright(cdist) + (p.bAdd || 0));
+        var bLine = 0.55 + 0.28 * flick;                          // 부업선: 균일하게 빛나되 천장에 막힘
+        var bGrid = (k < people) ? (0.72 + 0.28 * flick) : 0.14;  // 그리드: 카운트만큼 점등
+        var bCore = (p.atype === 0) ? (0.85 + 0.15 * flick) : (0.32 + 0.6 * aishade); // 핵 밝게 / 전자 앞면 밝게
+        var bA = bClock * (1 - pm1) + bLine * pm1;
+        var b12 = bA * (1 - pm2) + bGrid * pm2;
+        var b = (b12 * (1 - pm3) + bCore * pm3) * (0.32 + 0.68 * e) * (1 - exitP);
+        var szA = p.size * (1 - pm1) + 1.2 * pm1;
+        var sz12 = szA * (1 - pm2) + 1.5 * pm2;
+        var sz = sz12 * (1 - pm3) + asz * pm3;
+        particle(bx + p.ox * mf, by + p.oy * mf, b, sz);
       }
       requestAnimationFrame(frame);
     }

@@ -112,7 +112,7 @@ h1.title {
 
 /* ---------- 핀 스크럽 공통 ---------- */
 .pin-space { position: relative; }                      /* 스크롤 거리(=인터랙션 길이) */
-#s-cosmos .pin-space { height: 460vh; }
+#s-cosmos .pin-space { height: 1000vh; }
 #s-shift .pin-space { height: 230vh; }
 #s-what  .pin-space { height: 420vh; }
 .pin-sticky {
@@ -184,10 +184,17 @@ h1.title {
 .cosmos-text { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .ct-layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   text-align: center; padding: clamp(92px,13vh,150px) 24px clamp(48px,9vh,90px); }
-.ct-intro { justify-content: flex-end; }
-.ct-hook { justify-content: space-between; opacity: 0; }
-.ct-intro #introTyped { font-size: clamp(20px,2.6vw,32px); font-weight: 700; color: var(--fg); }
-.ct-hook .title { font-size: clamp(26px,4.4vw,58px); font-weight: 800; letter-spacing: -.02em; color: var(--fg); max-width: 18ch; }
+/* 비트 공통: 키워드 한 단어(크게·강조) + 서브텍스트(작게) */
+.ct-intro { justify-content: flex-end; gap: 14px; }
+.ct-shift2, .ct-ai { justify-content: flex-start; gap: 14px; }
+.ct-shift2, .ct-hook, .ct-ai { opacity: 0; }
+.ct-hook { justify-content: space-between; }
+.ct-top { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.ct-key { font-size: clamp(30px,4.6vw,60px); font-weight: 800; letter-spacing: -.03em;
+  line-height: 1; color: var(--accent); }
+.ct-key-ai { letter-spacing: .02em; text-shadow: 0 0 28px color-mix(in srgb, var(--accent) 65%, transparent); }
+.ct-sub { font-size: clamp(15px,1.7vw,20px); font-weight: 600; color: var(--fg-dim);
+  max-width: 28ch; line-height: 1.5; text-wrap: balance; }
 .cosmos-foot { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .intro { justify-content: flex-end; align-items: center; text-align: center; padding-bottom: clamp(48px,11vh,96px); }
 .intro-inner { width: auto; max-width: none; }
